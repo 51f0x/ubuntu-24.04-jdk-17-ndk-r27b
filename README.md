@@ -56,7 +56,7 @@ cd /path/to/your/mobile-app
 
 ### Usage
 
-**IMPORTANT:** The script must be run from your mobile app directory, or you must specify `EAS_WORK_DIR`.
+**IMPORTANT:** The script must be run from your mobile app directory, or you must specify `RUNNER_WORK_DIR`.
 
 ```bash
 # Navigate to your mobile app first
@@ -74,7 +74,7 @@ eas-build.zsh help
 Or specify the app directory explicitly:
 
 ```bash
-EAS_WORK_DIR=/path/to/mobile-app eas-build.zsh build
+RUNNER_WORK_DIR=/path/to/mobile-app eas-build.zsh build
 ```
 
 The script supports both Docker and Podman:
@@ -251,8 +251,11 @@ The `eas-build.zsh` script provides several convenient features:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `CONTAINER_ENGINE` | `docker` | Container engine to use (docker/podman) |
-| `EAS_WORK_DIR` | Current directory | Working directory to mount |
+| `CONTAINER_ENGINE` | `podman` | Container engine to use (docker/podman) |
+| `RUNNER_WORK_DIR` | Current directory | Working directory to mount |
+| `RUNNER_MEMORY` | 10g | Memory limit for container |
+| `RUNNER_MEMORY_SWAP` | 16g | Total memory + swap limit (10g memory + 6g swap) |
+| `RUNNER_CPUS` | 4 | Number of CPUs for container |
 
 ### Features
 

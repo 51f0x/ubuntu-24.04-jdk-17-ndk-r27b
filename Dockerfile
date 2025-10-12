@@ -53,7 +53,9 @@ ENV PATH $PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-too
 
 # Install required Android SDK components
 RUN yes | sdkmanager --licenses \
-    && sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0"
+    && sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0" \
+        "platforms;android-35" "build-tools;35.0.0" \
+        "platforms;android-36" "build-tools;36.0.0"
 
 # Install Maestro 2.0.2
 RUN wget https://github.com/mobile-dev-inc/maestro/releases/download/cli-2.0.2/maestro.zip \

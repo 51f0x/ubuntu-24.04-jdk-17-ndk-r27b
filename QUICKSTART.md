@@ -129,7 +129,7 @@ cd ~/projects/my-expo-app
 
 ### Pattern 3: Specifying Directory Explicitly
 ```bash
-EAS_WORK_DIR=~/projects/my-expo-app eas-build build development
+RUNNER_WORK_DIR=~/projects/my-expo-app eas-build build development
 ```
 
 ### Pattern 4: Multiple Apps

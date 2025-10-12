@@ -4,7 +4,7 @@ Quick reference guide for using the EAS Local Build Image.
 
 ## ⚠️ Important: Working Directory
 
-**The script MUST be run from your mobile app directory**, or you must set `EAS_WORK_DIR` to point to your app.
+**The script MUST be run from your mobile app directory**, or you must set `RUNNER_WORK_DIR` to point to your app.
 
 The script mounts your current directory into the Docker container, so it needs access to your `package.json`, `app.json`, `eas.json`, and source code.
 
@@ -128,8 +128,8 @@ Or explicitly set the working directory:
 
 ```bash
 # If your CI uses a different structure
-export EAS_WORK_DIR=$CI_PROJECT_DIR  # GitLab
-export EAS_WORK_DIR=$GITHUB_WORKSPACE  # GitHub Actions
+export RUNNER_WORK_DIR=$CI_PROJECT_DIR  # GitLab
+export RUNNER_WORK_DIR=$GITHUB_WORKSPACE  # GitHub Actions
 
 /path/to/eas-build.zsh build production
 ```
@@ -320,17 +320,17 @@ cd /path/to/your/mobile-app
 eas-build build
 ```
 
-### Override with EAS_WORK_DIR
+### Override with RUNNER_WORK_DIR
 
 If you can't navigate to the directory, specify it explicitly:
 
 ```bash
 # Set for your session
-export EAS_WORK_DIR=/path/to/mobile-app
+export RUNNER_WORK_DIR=/path/to/mobile-app
 eas-build build
 
 # Or inline for a single command
-EAS_WORK_DIR=/path/to/mobile-app eas-build build
+RUNNER_WORK_DIR=/path/to/mobile-app eas-build build
 ```
 
 ### Example: Multiple Projects
@@ -345,8 +345,8 @@ cd ~/projects/app2
 eas-build build production
 
 # Or without changing directories
-EAS_WORK_DIR=~/projects/app1 eas-build build production
-EAS_WORK_DIR=~/projects/app2 eas-build build production
+RUNNER_WORK_DIR=~/projects/app1 eas-build build production
+RUNNER_WORK_DIR=~/projects/app2 eas-build build production
 ```
 
 ## 🔄 Updating the Image
@@ -445,8 +445,9 @@ Clean and reinstall:
 5. **Resource limits**: Set CPU/memory limits for predictable builds
 
 ```bash
-# Example with resource limits
-docker run --rm --cpus="4" --memory="8g" -v $(pwd):/app -w /app ubuntu-24.04-jdk-17-ndk-r27b
+# Example with resource limits (the script handles this automatically)
+# Default: 10g memory, 16g total swap (10g + 6g), 4 CPUs
+# Override with: RUNNER_MEMORY=8g RUNNER_MEMORY_SWAP=10g RUNNER_CPUS=2 eas-build build
 ```
 
 ---

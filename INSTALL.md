@@ -151,7 +151,7 @@ The script works by mounting your **current directory** into the Docker containe
 
 2. **Or specify the directory explicitly:**
    ```bash
-   EAS_WORK_DIR=/path/to/mobile-app eas-build build
+   RUNNER_WORK_DIR=/path/to/mobile-app eas-build build
    ```
 
 ### Example Workflow

@@ -7,8 +7,11 @@ set -e
 
 # Configuration
 IMAGE_NAME="51f0x/ubuntu-24.04-jdk-17-ndk-r27b"
-CONTAINER_ENGINE="${CONTAINER_ENGINE:-docker}"  # Can be overridden with CONTAINER_ENGINE=podman
-WORK_DIR="${EAS_WORK_DIR:-$(pwd)}"
+CONTAINER_ENGINE="${CONTAINER_ENGINE:-podman}"  # Can be overridden with CONTAINER_ENGINE=podman
+WORK_DIR="${RUNNER_WORK_DIR:-$(pwd)}"
+MEMORY="${RUNNER_MEMORY:-10g}"
+MEMORY_SWAP="${RUNNER_MEMORY_SWAP:-16g}"  # Total of memory + swap (10g mem + 6g swap)
+CPUS="${RUNNER_CPUS:-4}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -79,15 +82,21 @@ build_image() {
 # Run EAS build with specified profile
 run_build() {
     local profile="${1:-development}"
+    local command="${2:-yarn install && cd apps/mobile && eas build --platform android --local --profile $profile}"
     
     print_info "Starting EAS build with profile: $profile"
     print_info "Working directory: $WORK_DIR"
     
-    $CONTAINER_ENGINE run --rm \
+    $CONTAINER_ENGINE run --rm -it \
         -v "$WORK_DIR:/app" \
         -w /app \
         -e PROFILE="$profile" \
-        "$IMAGE_NAME"
+        -e EXPO_TOKEN="${EXPO_TOKEN}" \
+        --memory "$MEMORY" --memory-swap "$MEMORY_SWAP" \
+        --cpus "$CPUS" \
+        --name eas-build \
+        "$IMAGE_NAME" \
+        bash -c "$command"
     
     if [[ $? -eq 0 ]]; then
         print_success "Build completed successfully"
@@ -105,6 +114,10 @@ run_shell() {
     $CONTAINER_ENGINE run --rm -it \
         -v "$WORK_DIR:/app" \
         -w /app \
+        -e EXPO_TOKEN="${EXPO_TOKEN}" \
+        --memory "$MEMORY" --memory-swap "$MEMORY_SWAP" \
+        --cpus "$CPUS" \
+        --name eas-build \
         "$IMAGE_NAME" \
         bash
 }
@@ -129,6 +142,10 @@ run_maestro() {
     $CONTAINER_ENGINE run --rm -it \
         -v "$WORK_DIR:/app" \
         -w /app \
+        -e EXPO_TOKEN="${EXPO_TOKEN}" \
+        --memory "$MEMORY" --memory-swap "$MEMORY_SWAP" \
+        --cpus "$CPUS" \
+        --name eas-build \
         "$IMAGE_NAME" \
         bash -c "maestro test $flow_file"
 }
@@ -147,13 +164,17 @@ run_custom() {
     $CONTAINER_ENGINE run --rm -it \
         -v "$WORK_DIR:/app" \
         -w /app \
+        -e EXPO_TOKEN="${EXPO_TOKEN}" \
+        --memory "$MEMORY" --memory-swap "$MEMORY_SWAP" \
+        --cpus "$CPUS" \
+        --name eas-build \
         "$IMAGE_NAME" \
         bash -c "$command"
 }
 
 # Install dependencies
 install_deps() {
-    local package_manager="${1:-npm}"
+    local package_manager="${1:-yarn}"
     
     print_info "Installing dependencies with $package_manager"
     
@@ -221,8 +242,9 @@ ${YELLOW}Usage:${NC}
 
 ${YELLOW}Commands:${NC}
     ${BLUE}build-image${NC}              Build the Docker image
-    ${BLUE}build [profile]${NC}          Run EAS build (default: development)
+    ${BLUE}build [profile] [cmd]${NC}    Run EAS build (default: development)
                               Profiles: development, preview, production
+                              Optional command overrides default EAS build
     ${BLUE}shell${NC}                    Start interactive bash shell
     ${BLUE}maestro <flow-file>${NC}      Run Maestro UI tests
     ${BLUE}install [pm]${NC}             Install dependencies (npm/yarn/pnpm/bun)
@@ -233,9 +255,15 @@ ${YELLOW}Commands:${NC}
 
 ${YELLOW}Environment Variables:${NC}
     ${BLUE}CONTAINER_ENGINE${NC}         Container engine to use (docker/podman)
-                              Default: docker
-    ${BLUE}EAS_WORK_DIR${NC}             Working directory to mount
+                              Default: podman
+    ${BLUE}RUNNER_WORK_DIR${NC}          Working directory to mount
                               Default: current directory
+    ${BLUE}RUNNER_MEMORY${NC}            Memory limit for container
+                              Default: 10g
+    ${BLUE}RUNNER_MEMORY_SWAP${NC}       Total memory + swap limit
+                              Default: 16g (10g memory + 6g swap)
+    ${BLUE}RUNNER_CPUS${NC}              Number of CPUs for container
+                              Default: 4
 
 ${YELLOW}Examples:${NC}
     # Build the Docker image
@@ -246,6 +274,9 @@ ${YELLOW}Examples:${NC}
 
     # Run production build
     $0 build production
+
+    # Run iOS build with custom command
+    $0 build development "eas build --platform ios --local --profile development"
 
     # Start interactive shell for debugging
     $0 shell
@@ -263,10 +294,13 @@ ${YELLOW}Examples:${NC}
     CONTAINER_ENGINE=podman $0 build
 
     # Use different working directory
-    EAS_WORK_DIR=/path/to/project $0 build
+    RUNNER_WORK_DIR=/path/to/project $0 build
+
+    # Use custom resource limits (6g memory + 2g swap = 8g total)
+    RUNNER_MEMORY=6g RUNNER_MEMORY_SWAP=8g RUNNER_CPUS=2 $0 build
 
 ${YELLOW}Notes:${NC}
-    - The script mounts your current directory (or EAS_WORK_DIR) into /app
+    - The script mounts your current directory (or RUNNER_WORK_DIR) into /app
     - All commands run with the same user permissions as the host
     - Build artifacts are created in your local directory
 
