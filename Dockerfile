@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1.7
-FROM ubuntu:24.04-slim
+FROM ubuntu:24.04
 
+# Note: SHELL directive requires --format=docker for podman builds (OCI format ignores it)
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -14,8 +15,8 @@ ARG SDKTOOLS_ZIP=commandlinetools-linux-11076708_latest.zip  # newer tools id
 ARG MAESTRO_VERSION=2.0.2
 
 # Optional checksums (fill with official shas)
-ARG NODE_SHA256="d200798332b7a56d355888ce58e6a639fac7939a4833e5bc8780c66888e1ce4d"
-ARG BUN_SHA256="4e9edc4cba0c7c1623a288be01e53bbde11a4d073f2cf339cab026627858b548"
+ARG NODE_SHA256="7a488a09e2fc02fbd1bc4ae084bea8a589314f741c182fc02c5f3f07c79a29d4"
+ARG BUN_SHA256="b3e5fac252490d98bd7cd4f209c60608d373576d7e1970661b9d5027833b22ec"
 ARG NDK_SHA256="33e16af1a6bbabe12cad54b2117085c07eab7e4fa67cdd831805f0e94fd826c1"
 ARG SDKTOOLS_SHA256="2d2d50857e4eb553af5a6dc3ad507a17adf43d115264b1afc116f95c92e5e258"
 ARG MAESTRO_SHA256="6ba03b6f09f7df7d40fdc2eb02f8022d89cad04b39e0eee11b794ef9757b2a2c"
@@ -46,8 +47,18 @@ ENV PATH="$PATH:$JAVA_HOME/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_H
 ARG USERNAME=builder
 ARG UID=1000
 ARG GID=1000
-RUN groupadd -g $GID $USERNAME && \
-    useradd -m -u $UID -g $GID -s /bin/bash $USERNAME && \
+RUN set -eux; \
+    GROUP_NAME=$USERNAME; \
+    if getent group $GID >/dev/null; then \
+        GROUP_NAME=$(getent group $GID | cut -d: -f1); \
+    else \
+        groupadd -g $GID $USERNAME; \
+    fi; \
+    if getent passwd $UID >/dev/null; then \
+        usermod -l $USERNAME -d /home/$USERNAME -m $(getent passwd $UID | cut -d: -f1) || true; \
+    else \
+        useradd -m -u $UID -g $GROUP_NAME -s /bin/bash $USERNAME; \
+    fi; \
     echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 USER $USERNAME
 WORKDIR /home/$USERNAME
@@ -64,14 +75,14 @@ RUN set -eux; \
     npm i -g npm@${NPM_VERSION}; \
     corepack enable; corepack prepare yarn@stable --activate; corepack prepare pnpm@latest --activate
 
-# -------- Install Bun (archive, no curl|bash) --------
+# -------- Install Bun (baseline build for broader CPU compatibility) --------
 RUN set -eux; \
     cd /tmp; \
-    wget -q https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-x64.zip; \
-    if [ -n "${BUN_SHA256}" ]; then echo "${BUN_SHA256}  bun-linux-x64.zip" | sha256sum -c -; fi; \
-    unzip -q bun-linux-x64.zip -d bun-tmp; \
-    sudo mv bun-tmp/bun-linux-x64/bun /usr/local/bin/bun; \
-    rm -rf bun-tmp bun-linux-x64.zip; \
+    wget -q https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-x64-baseline.zip; \
+    if [ -n "${BUN_SHA256}" ]; then echo "${BUN_SHA256}  bun-linux-x64-baseline.zip" | sha256sum -c -; fi; \
+    unzip -q bun-linux-x64-baseline.zip -d bun-tmp; \
+    sudo mv bun-tmp/bun-linux-x64-baseline/bun /usr/local/bin/bun; \
+    rm -rf bun-tmp bun-linux-x64-baseline.zip; \
     bun --version
 
 # -------- Android NDK --------
@@ -80,7 +91,7 @@ RUN set -eux; \
     wget -q https://dl.google.com/android/repository/android-ndk-${ANDROID_NDK}-linux.zip -O ndk.zip; \
     if [ -n "${NDK_SHA256}" ]; then echo "${NDK_SHA256}  ndk.zip" | sha256sum -c -; fi; \
     sudo unzip -q ndk.zip -d /opt; \
-    sudo chown -R builder:builder /opt/android-ndk-${ANDROID_NDK}; \
+    sudo chown -R $USERNAME:$(id -gn) /opt/android-ndk-${ANDROID_NDK}; \
     rm -f ndk.zip
 
 # -------- Android SDK cmdline-tools --------
@@ -91,15 +102,15 @@ RUN set -eux; \
     if [ -n "${SDKTOOLS_SHA256}" ]; then echo "${SDKTOOLS_SHA256}  sdktools.zip" | sha256sum -c -; fi; \
     sudo unzip -q sdktools.zip -d ${ANDROID_HOME}/cmdline-tools; \
     sudo mv ${ANDROID_HOME}/cmdline-tools/cmdline-tools ${ANDROID_HOME}/cmdline-tools/latest; \
-    sudo chown -R builder:builder ${ANDROID_HOME}; \
+    sudo chown -R $USERNAME:$(id -gn) ${ANDROID_HOME}; \
     rm -f sdktools.zip
 
-# Accept licenses + base components (split for caching)
-RUN yes | sdkmanager --licenses
-RUN sdkmanager "platform-tools"
-RUN sdkmanager "platforms;android-33" "build-tools;33.0.0"
-RUN sdkmanager "platforms;android-35" "build-tools;35.0.0"
-RUN sdkmanager "platforms;android-36" "build-tools;36.0.0"
+# Accept licenses + install SDK components (combined for fewer layers)
+RUN yes | sdkmanager --licenses && \
+    sdkmanager "platform-tools" \
+        "platforms;android-33" "build-tools;33.0.0" \
+        "platforms;android-35" "build-tools;35.0.0" \
+        "platforms;android-36" "build-tools;36.0.0"
 
 # -------- Maestro CLI --------
 RUN set -eux; \
@@ -108,7 +119,7 @@ RUN set -eux; \
     if [ -n "${MAESTRO_SHA256}" ]; then echo "${MAESTRO_SHA256}  maestro.zip" | sha256sum -c -; fi; \
     sudo unzip -q maestro.zip -d /opt; \
     sudo chmod +x /opt/maestro/bin/maestro; \
-    sudo chown -R builder:builder /opt/maestro; \
+    sudo chown -R $USERNAME:$(id -gn) /opt/maestro; \
     rm -f maestro.zip
 ENV PATH="${PATH}:/opt/maestro/bin"
 
