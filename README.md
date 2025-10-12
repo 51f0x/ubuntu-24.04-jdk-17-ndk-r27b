@@ -320,6 +320,8 @@ This project is open source and available for use, modification, and distributio
 - **[QUICKSTART.md](./QUICKSTART.md)** - ⚡ Fast getting started guide (start here!)
 - **[INSTALL.md](./INSTALL.md)** - Installation and setup instructions
 - **[USAGE.md](./USAGE.md)** - Detailed usage examples, workflows, and troubleshooting
+- **[RELEASE_NOTES.md](./RELEASE_NOTES.md)** - Release notes and version history
+- **[CHANGELOG.md](./CHANGELOG.md)** - Detailed changelog
 
 ## 🙏 Acknowledgments
 

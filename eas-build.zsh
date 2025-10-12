@@ -2,16 +2,18 @@
 
 # EAS Local Build Helper Script
 # This script provides convenient commands for building Expo apps locally using Docker/Podman
+# Version: 0.1.0
 
 set -e
 
 # Configuration
+VERSION="0.1.0"
 IMAGE_NAME="51f0x/ubuntu-24.04-jdk-17-ndk-r27b"
 CONTAINER_ENGINE="${CONTAINER_ENGINE:-podman}"  # Can be overridden with CONTAINER_ENGINE=podman
 WORK_DIR="${RUNNER_WORK_DIR:-$(pwd)}"
 MEMORY="${RUNNER_MEMORY:-10g}"
 MEMORY_SWAP="${RUNNER_MEMORY_SWAP:-16g}"  # Total of memory + swap (10g mem + 6g swap)
-CPUS="${RUNNER_CPUS:-4}"
+CPUS="${RUNNER_CPUS:-6}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -216,6 +218,7 @@ clean() {
 show_info() {
     print_info "Image Information"
     echo ""
+    echo "Script Version: $VERSION"
     echo "Image Name: $IMAGE_NAME"
     echo "Container Engine: $CONTAINER_ENGINE"
     echo "Work Directory: $WORK_DIR"
@@ -233,7 +236,7 @@ show_info() {
 # Show help
 show_help() {
     cat << EOF
-${GREEN}EAS Local Build Helper${NC}
+${GREEN}EAS Local Build Helper${NC} ${BLUE}v$VERSION${NC}
 
 A convenient wrapper script for building Expo apps locally using Docker/Podman.
 
