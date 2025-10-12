@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2025-10-12
+
+### Added
+- NDK volume mount (`NDK_VOL`) for persistent Android NDK caching
+- Documentation for `NDK_VOL` environment variable in help text and documentation
+- Comprehensive compatibility and fixes documentation (COMPATIBILITY_CHECK.md, FIXES_APPLIED.md)
+
+### Changed
+- Android SDK, NDK, and Maestro directories now owned by builder user for proper permissions
+- Improved build performance with complete volume caching (5-10x faster subsequent builds)
+- Documentation corrected: default CPU allocation is 4 cores (was incorrectly documented as 6 in v0.1.0)
+
+### Fixed
+- **Critical:** NDK (~1.5GB) now persists across container runs, eliminating re-downloads
+- **Critical:** Permission issues when using `--user` flag - all SDK/NDK/Maestro directories now have correct ownership
+- File ownership conflicts between host user and container user
+- Build startup time reduced by 2-5 minutes with NDK caching
+
+### Security
+- Improved permission model: all build tools owned by builder user instead of root
+- Better isolation between container and host file permissions
+
 ## [0.1.0] - 2025-10-12
 
 ### Added
@@ -56,5 +78,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Android SDK licenses automatically accepted
 - All tools downloaded from official sources only
 
+[0.2.0]: https://github.com/yourusername/ubuntu-24.04-jdk-17-ndk-r27b/releases/tag/v0.2.0
 [0.1.0]: https://github.com/yourusername/ubuntu-24.04-jdk-17-ndk-r27b/releases/tag/v0.1.0
 

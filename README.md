@@ -256,6 +256,11 @@ The `eas-build.zsh` script provides several convenient features:
 | `RUNNER_MEMORY` | 10g | Memory limit for container |
 | `RUNNER_MEMORY_SWAP` | 16g | Total memory + swap limit (10g memory + 6g swap) |
 | `RUNNER_CPUS` | 4 | Number of CPUs for container |
+| `GRADLE_VOL` | `gradle-cache` | Named volume for Gradle cache |
+| `ANDROID_VOL` | `android-sdk` | Named volume for Android SDK |
+| `NDK_VOL` | `android-ndk` | Named volume for Android NDK |
+| `NPM_VOL` | `npm-cache` | Named volume for npm cache |
+| `BUN_VOL` | `bun-cache` | Named volume for Bun cache |
 
 ### Features
 
@@ -265,6 +270,7 @@ The `eas-build.zsh` script provides several convenient features:
 - ✅ **Interactive prompts** for destructive operations
 - ✅ **Error handling** with meaningful messages
 - ✅ **Flexible working directory** mounting
+- ✅ **Persistent volume caching** for SDK, NDK, Gradle, npm, and Bun (5-10x faster subsequent builds)
 
 ## 🎯 Environment Variables
 

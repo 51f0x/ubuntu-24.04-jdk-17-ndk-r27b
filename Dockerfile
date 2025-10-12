@@ -1,68 +1,116 @@
-FROM ubuntu:noble-20250805
+# syntax=docker/dockerfile:1.7
+FROM ubuntu:24.04-slim
 
-# Set environment variables for Java
-ENV JAVA_HOME /usr/lib/jvm/java-17-openjdk-amd64
-ENV PATH $PATH:$JAVA_HOME/bin
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+ENV DEBIAN_FRONTEND=noninteractive
 
-# Install essential packages and Java 17
-RUN apt-get update && apt-get install -y \
-    wget \
-    curl \
-    unzip \
-    build-essential \
-    openjdk-17-jdk \
-    software-properties-common \
-    && apt-get clean \
+# -------- Version pins (edit in one place) --------
+ARG JAVA_MAJOR=17
+ARG NODE_VERSION=v20.19.4
+ARG NPM_VERSION=10.9.3
+ARG BUN_VERSION=1.2.20
+ARG ANDROID_NDK=r27b               # 27.1.12297006
+ARG SDKTOOLS_ZIP=commandlinetools-linux-11076708_latest.zip  # newer tools id
+ARG MAESTRO_VERSION=2.0.2
+
+# Optional checksums (fill with official shas)
+ARG NODE_SHA256="d200798332b7a56d355888ce58e6a639fac7939a4833e5bc8780c66888e1ce4d"
+ARG BUN_SHA256="4e9edc4cba0c7c1623a288be01e53bbde11a4d073f2cf339cab026627858b548"
+ARG NDK_SHA256="33e16af1a6bbabe12cad54b2117085c07eab7e4fa67cdd831805f0e94fd826c1"
+ARG SDKTOOLS_SHA256="2d2d50857e4eb553af5a6dc3ad507a17adf43d115264b1afc116f95c92e5e258"
+ARG MAESTRO_SHA256="6ba03b6f09f7df7d40fdc2eb02f8022d89cad04b39e0eee11b794ef9757b2a2c"
+
+# -------- Base packages in ONE layer (with cache) --------
+RUN --mount=type=cache,target=/var/cache/apt \
+    --mount=type=cache,target=/var/lib/apt \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+      sudo \
+      ca-certificates \
+      wget curl unzip xz-utils \
+      build-essential \
+      git \
+      openjdk-${JAVA_MAJOR}-jdk \
+      python3 python3-pip \
+      zsh bash \
     && rm -rf /var/lib/apt/lists/*
 
-# Add the official Git PPA
-RUN add-apt-repository ppa:git-core/ppa
-# Update package list and install the latest stable Git version
-RUN apt-get update && apt-get install -y git
+# -------- Environment --------
+ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
+ENV JAVA_HOME=/usr/lib/jvm/java-${JAVA_MAJOR}-openjdk-amd64
+ENV ANDROID_HOME=/opt/android-sdk
+ENV NDK_HOME=/opt/android-ndk-${ANDROID_NDK}
+ENV PATH="$PATH:$JAVA_HOME/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
 
-# Install Node.js 20.19.4
-RUN wget https://nodejs.org/dist/v20.19.4/node-v20.19.4-linux-x64.tar.xz \
-    && tar -xJf node-v20.19.4-linux-x64.tar.xz -C /usr/local --strip-components=1 \
-    && rm node-v20.19.4-linux-x64.tar.xz
+# -------- Create non-root user (uid/gid can be overridden) --------
+ARG USERNAME=builder
+ARG UID=1000
+ARG GID=1000
+RUN groupadd -g $GID $USERNAME && \
+    useradd -m -u $UID -g $GID -s /bin/bash $USERNAME && \
+    echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+USER $USERNAME
+WORKDIR /home/$USERNAME
 
-# Update npm to 10.9.3 and install Yarn, pnpm, node-gyp, and eas-cli
-RUN npm install -g npm@10.9.3 \
-    && npm install -g yarn@1.22.22 pnpm@10.14.0 node-gyp@11.3.0 eas-cli
+# -------- Install Node (tarball) + npm pin --------
+# Uses cache for tarball; verifies if you provide NODE_SHA256
+RUN set -eux; \
+    cd /tmp; \
+    wget -q https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-linux-x64.tar.xz; \
+    if [ -n "${NODE_SHA256}" ]; then echo "${NODE_SHA256}  node-${NODE_VERSION}-linux-x64.tar.xz" | sha256sum -c -; fi; \
+    sudo tar -xJf node-${NODE_VERSION}-linux-x64.tar.xz -C /usr/local --strip-components=1; \
+    rm node-${NODE_VERSION}-linux-x64.tar.xz; \
+    npm --version; \
+    npm i -g npm@${NPM_VERSION}; \
+    corepack enable; corepack prepare yarn@stable --activate; corepack prepare pnpm@latest --activate
 
-# Install Bun 1.2.20 using wget
-ENV BUN_INSTALL /usr/local
-RUN wget -qO- https://bun.sh/install | bash -s "bun-v1.2.20"
+# -------- Install Bun (archive, no curl|bash) --------
+RUN set -eux; \
+    cd /tmp; \
+    wget -q https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-x64.zip; \
+    if [ -n "${BUN_SHA256}" ]; then echo "${BUN_SHA256}  bun-linux-x64.zip" | sha256sum -c -; fi; \
+    unzip -q bun-linux-x64.zip -d bun-tmp; \
+    sudo mv bun-tmp/bun-linux-x64/bun /usr/local/bin/bun; \
+    rm -rf bun-tmp bun-linux-x64.zip; \
+    bun --version
 
-# Install Android NDK 27.1.12297006
-RUN wget https://dl.google.com/android/repository/android-ndk-r27b-linux.zip \
-    && unzip android-ndk-r27b-linux.zip -d /opt \
-    && rm android-ndk-r27b-linux.zip
+# -------- Android NDK --------
+RUN set -eux; \
+    cd /tmp; \
+    wget -q https://dl.google.com/android/repository/android-ndk-${ANDROID_NDK}-linux.zip -O ndk.zip; \
+    if [ -n "${NDK_SHA256}" ]; then echo "${NDK_SHA256}  ndk.zip" | sha256sum -c -; fi; \
+    sudo unzip -q ndk.zip -d /opt; \
+    sudo chown -R builder:builder /opt/android-ndk-${ANDROID_NDK}; \
+    rm -f ndk.zip
 
-ENV NDK_HOME /opt/android-ndk-r27b
+# -------- Android SDK cmdline-tools --------
+RUN set -eux; \
+    sudo mkdir -p ${ANDROID_HOME}/cmdline-tools; \
+    cd /tmp; \
+    wget -q https://dl.google.com/android/repository/${SDKTOOLS_ZIP} -O sdktools.zip; \
+    if [ -n "${SDKTOOLS_SHA256}" ]; then echo "${SDKTOOLS_SHA256}  sdktools.zip" | sha256sum -c -; fi; \
+    sudo unzip -q sdktools.zip -d ${ANDROID_HOME}/cmdline-tools; \
+    sudo mv ${ANDROID_HOME}/cmdline-tools/cmdline-tools ${ANDROID_HOME}/cmdline-tools/latest; \
+    sudo chown -R builder:builder ${ANDROID_HOME}; \
+    rm -f sdktools.zip
 
-# Install Android SDK command-line tools
-RUN wget https://dl.google.com/android/repository/commandlinetools-linux-7583922_latest.zip \
-    && mkdir -p /opt/android-sdk/cmdline-tools \
-    && unzip commandlinetools-linux-7583922_latest.zip -d /opt/android-sdk/cmdline-tools \
-    && mv /opt/android-sdk/cmdline-tools/cmdline-tools /opt/android-sdk/cmdline-tools/latest \
-    && rm commandlinetools-linux-7583922_latest.zip
+# Accept licenses + base components (split for caching)
+RUN yes | sdkmanager --licenses
+RUN sdkmanager "platform-tools"
+RUN sdkmanager "platforms;android-33" "build-tools;33.0.0"
+RUN sdkmanager "platforms;android-35" "build-tools;35.0.0"
+RUN sdkmanager "platforms;android-36" "build-tools;36.0.0"
 
-# Set environment variables for Android SDK
-ENV ANDROID_HOME /opt/android-sdk
-ENV PATH $PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
+# -------- Maestro CLI --------
+RUN set -eux; \
+    cd /tmp; \
+    wget -q https://github.com/mobile-dev-inc/maestro/releases/download/cli-${MAESTRO_VERSION}/maestro.zip; \
+    if [ -n "${MAESTRO_SHA256}" ]; then echo "${MAESTRO_SHA256}  maestro.zip" | sha256sum -c -; fi; \
+    sudo unzip -q maestro.zip -d /opt; \
+    sudo chmod +x /opt/maestro/bin/maestro; \
+    sudo chown -R builder:builder /opt/maestro; \
+    rm -f maestro.zip
+ENV PATH="${PATH}:/opt/maestro/bin"
 
-# Install required Android SDK components
-RUN yes | sdkmanager --licenses \
-    && sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0" \
-        "platforms;android-35" "build-tools;35.0.0" \
-        "platforms;android-36" "build-tools;36.0.0"
-
-# Install Maestro 2.0.2
-RUN wget https://github.com/mobile-dev-inc/maestro/releases/download/cli-2.0.2/maestro.zip \
-    && unzip maestro.zip -d /opt \
-    && rm maestro.zip
-
-ENV PATH $PATH:/opt/maestro/bin
-
-# Hardcode the EAS build command with a default profile
-CMD ["bash", "-c", "eas build --platform android --local --profile ${PROFILE:-development}"]
+# -------- Default command (profile overridable) --------
+CMD ["bash", "-lc", "eas build --platform android --local --profile ${PROFILE:-development}"]
