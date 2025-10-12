@@ -63,7 +63,7 @@ RUN set -eux; \
 USER $USERNAME
 WORKDIR /home/$USERNAME
 
-# -------- Install Node (tarball) + npm pin --------
+# -------- Install Node (tarball) + npm pin + eas-cli --------
 # Uses cache for tarball; verifies if you provide NODE_SHA256
 RUN set -eux; \
     cd /tmp; \
@@ -73,7 +73,9 @@ RUN set -eux; \
     rm node-${NODE_VERSION}-linux-x64.tar.xz; \
     npm --version; \
     npm i -g npm@${NPM_VERSION}; \
-    corepack enable; corepack prepare yarn@stable --activate; corepack prepare pnpm@latest --activate
+    npm i -g eas-cli; \
+    corepack enable; corepack prepare yarn@stable --activate; corepack prepare pnpm@latest --activate; \
+    yarn config set --home enableTelemetry 0
 
 # -------- Install Bun (baseline build for broader CPU compatibility) --------
 RUN set -eux; \
