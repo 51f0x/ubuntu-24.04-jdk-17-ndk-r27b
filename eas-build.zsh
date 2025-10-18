@@ -10,9 +10,6 @@ CPUS="${RUNNER_CPUS:-6}"
 PLATFORM_OPT="${RUNNER_PLATFORM:+--platform ${RUNNER_PLATFORM}}"   # e.g. linux/amd64 or linux/arm64
 ENV_FILE_OPT="${ENV_FILE:+--env-file ${ENV_FILE}}"
 
-UIDGID="$(id -u):$(id -g)"
-USER_UID="${USER_UID:-$(id -u)}"
-USER_GID="${USER_GID:-$(id -g)}"
 GRADLE_VOL="${GRADLE_VOL:-gradle-cache}"
 ANDROID_VOL="${ANDROID_VOL:-android-sdk}"
 NDK_VOL="${NDK_VOL:-android-ndk}"
@@ -46,9 +43,6 @@ print_env_vars() {
   print -P "  BUN_VOL              = %F{white}$BUN_VOL%f"
   print -P ""
   print -P "%F{yellow}Other Settings:%f"
-  print -P "  USER:GROUP (auto)    = %F{white}$UIDGID%f"
-  print -P "  USER_UID             = %F{white}$USER_UID%f"
-  print -P "  USER_GID             = %F{white}$USER_GID%f"
   print -P "  ENV_FILE             = %F{white}${ENV_FILE:-(not set)}%f"
   if [[ -n "${EXPO_TOKEN:-}" ]]; then
     print -P "  EXPO_TOKEN           = %F{green}(set)%f"
@@ -65,10 +59,8 @@ check_ce() {
 
 build_image() {
   check_ce
-  info "Building image: $IMAGE_NAME (UID=$USER_UID, GID=$USER_GID)"
+  info "Building image: $IMAGE_NAME"
   $CONTAINER_ENGINE build \
-    --build-arg UID="$USER_UID" \
-    --build-arg GID="$USER_GID" \
     -t "$IMAGE_NAME" .
   ok "Image built: $IMAGE_NAME"
 }
@@ -90,7 +82,6 @@ _run_base() {
     -v "$NPM_VOL:/home/builder/.npm" \
     -v "$BUN_VOL:/home/builder/.bun" \
     -e EXPO_TOKEN="${EXPO_TOKEN:-}" \
-    --user "$UIDGID" \
     --memory "$MEMORY" --memory-swap "$MEMORY_SWAP" --cpus "$CPUS" \
     --name eas-build "$IMAGE_NAME" "${extra[@]}"
 }
@@ -167,7 +158,6 @@ Env:
   RUNNER_MEMORY=10g (memory limit)
   RUNNER_MEMORY_SWAP=16g (total memory + swap)
   RUNNER_CPUS=4 (CPU cores)
-  USER_UID, USER_GID    User/group IDs for container (defaults to current user)
   GRADLE_VOL, ANDROID_VOL, NDK_VOL, NPM_VOL, BUN_VOL to override cache volumes
 EOF
   ;;
