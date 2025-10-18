@@ -51,8 +51,6 @@ RUN groupadd --gid $USER_GID $USERNAME && \
     useradd --uid $USER_UID --gid $USER_GID -m $USERNAME && \
     echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/$USERNAME && \
     chmod 0440 /etc/sudoers.d/$USERNAME
-USER $USERNAME
-WORKDIR /home/$USERNAME
 
 # -------- Install Node (tarball) + npm pin + eas-cli --------
 # Uses cache for tarball; verifies if you provide NODE_SHA256
@@ -115,6 +113,9 @@ RUN set -eux; \
     sudo chown -R $USERNAME:$(id -gn) /opt/maestro; \
     rm -f maestro.zip
 ENV PATH="${PATH}:/opt/maestro/bin"
+
+USER $USERNAME
+WORKDIR /home/$USERNAME
 
 # -------- Default command (profile overridable) --------
 CMD ["bash", "-lc", "eas build --platform android --local --profile ${PROFILE:-development}"]
