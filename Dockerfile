@@ -45,21 +45,6 @@ ENV PATH="$PATH:$JAVA_HOME/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_H
 
 # -------- Create non-root user (uid/gid can be overridden) --------
 ARG USERNAME=builder
-ARG UID=1000
-ARG GID=1000
-RUN set -eux; \
-    GROUP_NAME=$USERNAME; \
-    if getent group $GID >/dev/null; then \
-        GROUP_NAME=$(getent group $GID | cut -d: -f1); \
-    else \
-        groupadd -g $GID $USERNAME; \
-    fi; \
-    if getent passwd $UID >/dev/null; then \
-        usermod -l $USERNAME -d /home/$USERNAME -m $(getent passwd $UID | cut -d: -f1) || true; \
-    else \
-        useradd -m -u $UID -g $GROUP_NAME -s /bin/bash $USERNAME; \
-    fi; \
-    echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 USER $USERNAME
 WORKDIR /home/$USERNAME
 
