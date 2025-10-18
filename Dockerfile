@@ -43,15 +43,6 @@ ENV ANDROID_HOME=/opt/android-sdk
 ENV NDK_HOME=/opt/android-ndk-${ANDROID_NDK}
 ENV PATH="$PATH:$JAVA_HOME/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
 
-# -------- Create non-root user (uid/gid can be overridden) --------
-ARG USERNAME=builder
-ARG USER_UID=1000
-ARG USER_GID=$USER_UID
-RUN groupadd --gid $USER_GID $USERNAME && \
-    useradd --uid $USER_UID --gid $USER_GID -m $USERNAME && \
-    echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/$USERNAME && \
-    chmod 0440 /etc/sudoers.d/$USERNAME
-
 # -------- Install Node (tarball) + npm pin + eas-cli --------
 # Uses cache for tarball; verifies if you provide NODE_SHA256
 RUN set -eux; \
@@ -82,7 +73,6 @@ RUN set -eux; \
     wget -q https://dl.google.com/android/repository/android-ndk-${ANDROID_NDK}-linux.zip -O ndk.zip; \
     if [ -n "${NDK_SHA256}" ]; then echo "${NDK_SHA256}  ndk.zip" | sha256sum -c -; fi; \
     sudo unzip -q ndk.zip -d /opt; \
-    sudo chown -R $USERNAME:$(id -gn) /opt/android-ndk-${ANDROID_NDK}; \
     rm -f ndk.zip
 
 # -------- Android SDK cmdline-tools --------
@@ -93,7 +83,6 @@ RUN set -eux; \
     if [ -n "${SDKTOOLS_SHA256}" ]; then echo "${SDKTOOLS_SHA256}  sdktools.zip" | sha256sum -c -; fi; \
     sudo unzip -q sdktools.zip -d ${ANDROID_HOME}/cmdline-tools; \
     sudo mv ${ANDROID_HOME}/cmdline-tools/cmdline-tools ${ANDROID_HOME}/cmdline-tools/latest; \
-    sudo chown -R $USERNAME:$(id -gn) ${ANDROID_HOME}; \
     rm -f sdktools.zip
 
 # Accept licenses + install SDK components (combined for fewer layers)
@@ -110,12 +99,9 @@ RUN set -eux; \
     if [ -n "${MAESTRO_SHA256}" ]; then echo "${MAESTRO_SHA256}  maestro.zip" | sha256sum -c -; fi; \
     sudo unzip -q maestro.zip -d /opt; \
     sudo chmod +x /opt/maestro/bin/maestro; \
-    sudo chown -R $USERNAME:$(id -gn) /opt/maestro; \
     rm -f maestro.zip
 ENV PATH="${PATH}:/opt/maestro/bin"
 
-USER $USERNAME
-WORKDIR /home/$USERNAME
 
 # -------- Default command (profile overridable) --------
 CMD ["bash", "-lc", "eas build --platform android --local --profile ${PROFILE:-development}"]
