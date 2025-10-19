@@ -14,6 +14,7 @@ GRADLE_VOL="${GRADLE_VOL:-gradle-cache}"
 ANDROID_VOL="${ANDROID_VOL:-android-sdk}"
 NDK_VOL="${NDK_VOL:-android-ndk}"
 NPM_VOL="${NPM_VOL:-npm-cache}"
+YARN_VOL="${YARN_VOL:-yarn-cache}"
 BUN_VOL="${BUN_VOL:-bun-cache}"
 
 info() { print -P "%F{blue}ℹ%f $*"; }
@@ -40,6 +41,7 @@ print_env_vars() {
   print -P "  ANDROID_VOL          = %F{white}$ANDROID_VOL%f"
   print -P "  NDK_VOL              = %F{white}$NDK_VOL%f"
   print -P "  NPM_VOL              = %F{white}$NPM_VOL%f"
+  print -P "  YARN_VOL             = %F{white}$YARN_VOL%f"
   print -P "  BUN_VOL              = %F{white}$BUN_VOL%f"
   print -P ""
   print -P "%F{yellow}Other Settings:%f"
@@ -77,10 +79,15 @@ _run_base() {
     $PLATFORM_OPT $ENV_FILE_OPT \
     -v "$WORK_DIR:/app${vol_opt}" -w /app \
     -v "$GRADLE_VOL:/home/builder/.gradle" \
+    -v "$GRADLE_VOL:/root/.gradle" \
     -v "$ANDROID_VOL:/opt/android-sdk" \
     -v "$NDK_VOL:/opt/android-ndk-r27b" \
     -v "$NPM_VOL:/home/builder/.npm" \
+    -v "$NPM_VOL:/root/.npm" \
+    -v "$YARN_VOL:/home/builder/.yarn" \
+    -v "$YARN_VOL:/root/.yarn" \
     -v "$BUN_VOL:/home/builder/.bun" \
+    -v "$BUN_VOL:/root/.bun" \
     -e EXPO_TOKEN="${EXPO_TOKEN:-}" \
     --memory "$MEMORY" --memory-swap "$MEMORY_SWAP" --cpus "$CPUS" \
     --name eas-build "$IMAGE_NAME" "${extra[@]}"
@@ -158,7 +165,7 @@ Env:
   RUNNER_MEMORY=10g (memory limit)
   RUNNER_MEMORY_SWAP=16g (total memory + swap)
   RUNNER_CPUS=4 (CPU cores)
-  GRADLE_VOL, ANDROID_VOL, NDK_VOL, NPM_VOL, BUN_VOL to override cache volumes
+  GRADLE_VOL, ANDROID_VOL, NDK_VOL, NPM_VOL, YARN_VOL, BUN_VOL to override cache volumes
 EOF
   ;;
   *) err "Unknown command: $1"; exit 1 ;;
